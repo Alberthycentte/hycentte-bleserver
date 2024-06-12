@@ -38,7 +38,7 @@
     </div>
     <div class="footer">
         <p>Created by Hycenttetech</p>
-        <p><a href="https://api.whatsapp.com/send/?phone=7060803041&text&type=phone_number&app_absent=0">Send Us a DM On WhatsApp</a></p>
+        <p><a href="https://api.whatsapp.com/send/?phone=7060813041&text&type=phone_number&app_absent=0">Send Us a DM On WhatsApp</a></p>
     </div>
 </body>
 <script>
@@ -52,20 +52,20 @@
     const bleStateContainer = document.getElementById('bleState');
     const timestampContainer = document.getElementById('timestamp');
 
-    //Define BLE Device Specs
-    var deviceName ='ESP32';
+    // Define BLE Device Specs
+    var deviceName = 'ESP32'; // Make sure this matches the name in the ESP32 firmware
     var bleService = '19b10000-e8f2-537e-4f6c-d104768a1214';
     var ledCharacteristic = '19b10002-e8f2-537e-4f6c-d104768a1214';
-    var sensorCharacteristic= '19b10001-e8f2-537e-4f6c-d104768a1214';
+    var sensorCharacteristic = '19b10001-e8f2-537e-4f6c-d104768a1214';
 
-    //Global Variables to Handle Bluetooth
+    // Global Variables to Handle Bluetooth
     var bleServer;
     var bleServiceFound;
     var sensorCharacteristicFound;
 
     // Connect Button (search for BLE Devices only if BLE is available)
     connectButton.addEventListener('click', (event) => {
-        if (isWebBluetoothEnabled()){
+        if (isWebBluetoothEnabled()) {
             connectToDevice();
         }
     });
@@ -82,17 +82,17 @@
         if (!navigator.bluetooth) {
             console.log('Web Bluetooth API is not available in this browser!');
             bleStateContainer.innerHTML = "Web Bluetooth API is not available in this browser/device!";
-            return false
+            return false;
         }
         console.log('Web Bluetooth API supported in this browser.');
-        return true
+        return true;
     }
 
     // Connect to BLE Device and Enable Notifications
-    function connectToDevice(){
+    function connectToDevice() {
         console.log('Initializing Bluetooth...');
         navigator.bluetooth.requestDevice({
-            filters: [{name: deviceName}],
+            filters: [{ name: deviceName }],
             optionalServices: [bleService]
         })
         .then(device => {
@@ -102,7 +102,7 @@
             device.addEventListener('gattservicedisconnected', onDisconnected);
             return device.gatt.connect();
         })
-        .then(gattServer =>{
+        .then(gattServer => {
             bleServer = gattServer;
             console.log("Connected to GATT Server");
             return bleServer.getPrimaryService(bleService);
@@ -116,22 +116,23 @@
             console.log("Characteristic discovered:", characteristic.uuid);
             sensorCharacteristicFound = characteristic;
             characteristic.addEventListener('characteristicvaluechanged', handleCharacteristicChange);
-            characteristic.startNotifications();
+            return characteristic.startNotifications();
+        })
+        .then(() => {
             console.log("Notifications Started.");
-            return characteristic.readValue();
+            return sensorCharacteristicFound.readValue();
         })
         .then(value => {
-            console.log("Read value: ", value);
             const decodedValue = new TextDecoder().decode(value);
-            console.log("Decoded value: ", decodedValue);
+            console.log("Read value: ", decodedValue);
             retrievedValue.innerHTML = decodedValue;
         })
         .catch(error => {
             console.log('Error: ', error);
-        })
+        });
     }
 
-    function onDisconnected(event){
+    function onDisconnected(event) {
         console.log('Device Disconnected:', event.target.device.name);
         bleStateContainer.innerHTML = "Device disconnected";
         bleStateContainer.style.color = "#d13a30";
@@ -139,14 +140,14 @@
         connectToDevice();
     }
 
-    function handleCharacteristicChange(event){
+    function handleCharacteristicChange(event) {
         const newValueReceived = new TextDecoder().decode(event.target.value);
         console.log("Characteristic value changed: ", newValueReceived);
         retrievedValue.innerHTML = newValueReceived;
         timestampContainer.innerHTML = getDateTime();
     }
 
-    function writeOnCharacteristic(value){
+    function writeOnCharacteristic(value) {
         if (bleServer && bleServer.connected) {
             bleServiceFound.getCharacteristic(ledCharacteristic)
             .then(characteristic => {
@@ -156,14 +157,14 @@
             })
             .then(() => {
                 latestValueSent.innerHTML = value;
-                console.log("Value written to LEDcharacteristic:", value);
+                console.log("Value written to LED characteristic:", value);
             })
             .catch(error => {
                 console.error("Error writing to the LED characteristic: ", error);
             });
         } else {
-            console.error ("Bluetooth is not connected. Cannot write to characteristic.")
-            window.alert("Bluetooth is not connected. Cannot write to characteristic. \n Connect to BLE first!")
+            console.error("Bluetooth is not connected. Cannot write to characteristic.");
+            window.alert("Bluetooth is not connected. Cannot write to characteristic. \n Connect to BLE first!");
         }
     }
 
@@ -180,7 +181,6 @@
                         console.log("Device Disconnected");
                         bleStateContainer.innerHTML = "Device Disconnected";
                         bleStateContainer.style.color = "#d13a30";
-
                     })
                     .catch(error => {
                         console.log("An error occurred:", error);
@@ -189,9 +189,8 @@
                 console.log("No characteristic found to disconnect.");
             }
         } else {
-            // Throw an error if Bluetooth is not connected
             console.error("Bluetooth is not connected.");
-            window.alert("Bluetooth is not connected.")
+            window.alert("Bluetooth is not connected.");
         }
     }
 
@@ -207,8 +206,5 @@
         var datetime = day + "/" + month + "/" + year + " at " + hours + ":" + minutes + ":" + seconds;
         return datetime;
     }
-
-
 </script>
-
 </html>
