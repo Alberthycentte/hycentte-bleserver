@@ -15,8 +15,8 @@
         <div class="card-grid">
             <div class="card">
                 <p>
-                    <button id="connectBleButton" class="connectButton"> Connect to BLE Device</button>
-                    <button id="disconnectBleButton" class="disconnectButton"> Disconnect BLE Device</button>
+                    <button id="connectBleButton" class="connectButton">Connect to BLE Device</button>
+                    <button id="disconnectBleButton" class="disconnectButton">Disconnect BLE Device</button>
                 </p>
                 <p class="gray-label">BLE state: <strong><span id="bleState" style="color:#d13a30;">Disconnected</span></strong></p>
             </div>
@@ -27,12 +27,19 @@
                 <p class="reading"><span id="valueContainer">NaN</span></p>
                 <p class="gray-label">Last reading: <span id="timestamp"></span></p>
             </div>
-
             <div class="card">
                 <h2>Control GPIO 2</h2>
                 <button id="onButton" class="onButton">ON</button>
                 <button id="offButton" class="offButton">OFF</button>
                 <p class="gray-label">Last value sent: <span id="valueSent"></span></p>
+            </div>
+        </div>
+        <div class="card-grid">
+            <div class="card">
+                <h2>Configuration Settings</h2>
+                <textarea id="configData" rows="4" cols="50" placeholder="Enter configuration settings here..."></textarea>
+                <button id="sendConfigButton" class="sendButton">Send Config</button>
+                <p class="gray-label">Last config sent: <span id="lastConfigSent"></span></p>
             </div>
         </div>
     </div>
@@ -47,21 +54,26 @@
     const disconnectButton = document.getElementById('disconnectBleButton');
     const onButton = document.getElementById('onButton');
     const offButton = document.getElementById('offButton');
+    const sendConfigButton = document.getElementById('sendConfigButton');
     const retrievedValue = document.getElementById('valueContainer');
     const latestValueSent = document.getElementById('valueSent');
     const bleStateContainer = document.getElementById('bleState');
     const timestampContainer = document.getElementById('timestamp');
+    const configData = document.getElementById('configData');
+    const lastConfigSent = document.getElementById('lastConfigSent');
 
     // Define BLE Device Specs
     var deviceName = 'ESP32'; // Make sure this matches the name in the ESP32 firmware
     var bleService = '3d52ba9d-c6f4-42e2-bd65-53d421e8078d';
-    var ledCharacteristic = '7b338766-dbd9-4a7f-9c99-1797369c8220';
-    var sensorCharacteristic = '00f3a86d-9b8d-4dcc-9724-7ead9e943c16';
+    var sensorCharacteristic = '7b338766-dbd9-4a7f-9c99-1797369c8220';
+    var ledCharacteristic = '00f3a86d-9b8d-4dcc-9724-7ead9e943c16';
+    var configCharacteristic = '5a73f0ff-9cc5-4df8-8977-cf1abdb08a7a';
 
     // Global Variables to Handle Bluetooth
     var bleServer;
     var bleServiceFound;
     var sensorCharacteristicFound;
+    var configCharacteristicFound;
 
     // Connect Button (search for BLE Devices only if BLE is available)
     connectButton.addEventListener('click', (event) => {
@@ -74,8 +86,11 @@
     disconnectButton.addEventListener('click', disconnectDevice);
 
     // Write to the ESP32 LED Characteristic
-    onButton.addEventListener('click', () => writeOnCharacteristic(1));
-    offButton.addEventListener('click', () => writeOnCharacteristic(0));
+    onButton.addEventListener('click', () => writeOnCharacteristic(ledCharacteristic, 1));
+    offButton.addEventListener('click', () => writeOnCharacteristic(ledCharacteristic, 0));
+
+    // Send Configuration Data
+    sendConfigButton.addEventListener('click', () => sendConfiguration(configData.value));
 
     // Check if BLE is available in your Browser
     function isWebBluetoothEnabled() {
@@ -110,13 +125,17 @@
         .then(service => {
             bleServiceFound = service;
             console.log("Service discovered:", service.uuid);
-            return service.getCharacteristic(sensorCharacteristic);
+            return Promise.all([
+                service.getCharacteristic(sensorCharacteristic),
+                service.getCharacteristic(configCharacteristic)
+            ]);
         })
-        .then(characteristic => {
-            console.log("Characteristic discovered:", characteristic.uuid);
-            sensorCharacteristicFound = characteristic;
-            characteristic.addEventListener('characteristicvaluechanged', handleCharacteristicChange);
-            return characteristic.startNotifications();
+        .then(characteristics => {
+            sensorCharacteristicFound = characteristics[0];
+            configCharacteristicFound = characteristics[1];
+            console.log("Characteristics discovered:", characteristics.map(c => c.uuid));
+            sensorCharacteristicFound.addEventListener('characteristicvaluechanged', handleCharacteristicChange);
+            return sensorCharacteristicFound.startNotifications();
         })
         .then(() => {
             console.log("Notifications Started.");
@@ -136,7 +155,6 @@
         console.log('Device Disconnected:', event.target.device.name);
         bleStateContainer.innerHTML = "Device disconnected";
         bleStateContainer.style.color = "#d13a30";
-
         connectToDevice();
     }
 
@@ -147,24 +165,41 @@
         timestampContainer.innerHTML = getDateTime();
     }
 
-    function writeOnCharacteristic(value) {
+    function writeOnCharacteristic(characteristicUUID, value) {
         if (bleServer && bleServer.connected) {
-            bleServiceFound.getCharacteristic(ledCharacteristic)
+            bleServiceFound.getCharacteristic(characteristicUUID)
             .then(characteristic => {
-                console.log("Found the LED characteristic: ", characteristic.uuid);
+                console.log("Found the characteristic: ", characteristic.uuid);
                 const data = new Uint8Array([value]);
                 return characteristic.writeValue(data);
             })
             .then(() => {
                 latestValueSent.innerHTML = value;
-                console.log("Value written to LED characteristic:", value);
+                console.log("Value written to characteristic:", value);
             })
             .catch(error => {
-                console.error("Error writing to the LED characteristic: ", error);
+                console.error("Error writing to the characteristic: ", error);
             });
         } else {
             console.error("Bluetooth is not connected. Cannot write to characteristic.");
             window.alert("Bluetooth is not connected. Cannot write to characteristic. \n Connect to BLE first!");
+        }
+    }
+
+    function sendConfiguration(configValue) {
+        if (bleServer && bleServer.connected) {
+            const data = new TextEncoder().encode(configValue);
+            configCharacteristicFound.writeValue(data)
+            .then(() => {
+                lastConfigSent.innerHTML = configValue;
+                console.log("Configuration sent:", configValue);
+            })
+            .catch(error => {
+                console.error("Error sending configuration:", error);
+            });
+        } else {
+            console.error("Bluetooth is not connected. Cannot send configuration.");
+            window.alert("Bluetooth is not connected. Cannot send configuration. \n Connect to BLE first!");
         }
     }
 
