@@ -28,6 +28,9 @@ body {
 .card {
     background-color: white;
     box-shadow: 2px 2px 12px 1px rgba(140,140,140,.5);
+    padding: 20px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
 }
 button {
     color: white;
@@ -38,20 +41,24 @@ button {
     border-radius: 4px;
 }
 
-.onButton{
+.onButton {
     background-color: #90EE90;
 }
 
-.offButton{
+.offButton {
     background-color: #FF0000;
 }
 
-.connectButton{
+.connectButton {
     background-color: #24af37;
 }
 
-.disconnectButton{
+.disconnectButton {
     background-color: #d13a30;
+}
+
+.sendButton {
+    background-color: #1E90FF;
 }
 
 .gray-label {
@@ -61,4 +68,22 @@ button {
 
 .reading {
     font-size: 1.8rem;
+}
+
+textarea {
+    width: 100%;
+    padding: 10px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    margin-bottom: 10px;
+    resize: vertical;
+}
+
+.card h2 {
+    margin-top: 0;
+    color: #333;
+}
+
+.card p {
+    margin: 0.5em 0;
 }
