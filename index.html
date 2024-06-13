@@ -6,10 +6,92 @@
     <link rel="icon" type="image/png" href="favicon.ico">
     <link rel="stylesheet" type="text/css" href="style.css">
     <meta charset="UTF-8">
+    <style>
+        /* Insert the CSS code here */
+        html {
+            font-family: Arial, Helvetica, sans-serif;
+            display: inline-block;
+            text-align: center;
+        }
+        h1 {
+            font-size: 1.8rem;
+            color: white;
+        }
+        .topnav {
+            overflow: hidden;
+            background-color: #0A1128;
+        }
+        body {
+            margin: 0;
+        }
+        .content {
+            padding: 50px;
+        }
+        .card-grid {
+            max-width: 800px;
+            margin: 0 auto;
+            margin-bottom: 30px;
+            display: grid;
+            grid-gap: 2rem;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        }
+        .card {
+            background-color: white;
+            box-shadow: 2px 2px 12px 1px rgba(140,140,140,.5);
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #ccc;
+        }
+        button {
+            color: white;
+            padding: 14px 20px;
+            margin: 8px 0;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .onButton {
+            background-color: #90EE90;
+        }
+        .offButton {
+            background-color: #FF0000;
+        }
+        .connectButton {
+            background-color: #24af37;
+        }
+        .disconnectButton {
+            background-color: #d13a30;
+        }
+        .sendButton {
+            background-color: #1E90FF;
+        }
+        .gray-label {
+            color: #bebebe;
+            font-size: 1rem;
+        }
+        .reading {
+            font-size: 1.8rem;
+        }
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            margin-bottom: 10px;
+            resize: vertical;
+        }
+        .card h2 {
+            margin-top: 0;
+            color: #333;
+        }
+        .card p {
+            margin: 0.5em 0;
+        }
+    </style>
 </head>
 <body>
     <div class="topnav">
-        <h1>ESP32 BLE Web Server</h1>
+        <h1>ESP32 Web BLE Application</h1>
     </div>
     <div class="content">
         <div class="card-grid">
@@ -23,7 +105,7 @@
         </div>
         <div class="card-grid">
             <div class="card">
-                <h2>Value Received</h2>
+                <h2>Fetched Value</h2>
                 <p class="reading"><span id="valueContainer">NaN</span></p>
                 <p class="gray-label">Last reading: <span id="timestamp"></span></p>
             </div>
@@ -86,11 +168,11 @@
     disconnectButton.addEventListener('click', disconnectDevice);
 
     // Write to the ESP32 LED Characteristic
-    onButton.addEventListener('click', () => writeOnCharacteristic(ledCharacteristic, 1));
-    offButton.addEventListener('click', () => writeOnCharacteristic(ledCharacteristic, 0));
+    onButton.addEventListener('click', () => writeOnCharacteristic(1));
+    offButton.addEventListener('click', () => writeOnCharacteristic(0));
 
-    // Send Configuration Data
-    sendConfigButton.addEventListener('click', () => sendConfiguration(configData.value));
+    // Send Config Data
+    sendConfigButton.addEventListener('click', () => sendConfigData(configData.value));
 
     // Check if BLE is available in your Browser
     function isWebBluetoothEnabled() {
@@ -125,17 +207,13 @@
         .then(service => {
             bleServiceFound = service;
             console.log("Service discovered:", service.uuid);
-            return Promise.all([
-                service.getCharacteristic(sensorCharacteristic),
-                service.getCharacteristic(configCharacteristic)
-            ]);
+            return service.getCharacteristic(sensorCharacteristic);
         })
-        .then(characteristics => {
-            sensorCharacteristicFound = characteristics[0];
-            configCharacteristicFound = characteristics[1];
-            console.log("Characteristics discovered:", characteristics.map(c => c.uuid));
-            sensorCharacteristicFound.addEventListener('characteristicvaluechanged', handleCharacteristicChange);
-            return sensorCharacteristicFound.startNotifications();
+        .then(characteristic => {
+            console.log("Characteristic discovered:", characteristic.uuid);
+            sensorCharacteristicFound = characteristic;
+            characteristic.addEventListener('characteristicvaluechanged', handleCharacteristicChange);
+            return characteristic.startNotifications();
         })
         .then(() => {
             console.log("Notifications Started.");
@@ -155,6 +233,7 @@
         console.log('Device Disconnected:', event.target.device.name);
         bleStateContainer.innerHTML = "Device disconnected";
         bleStateContainer.style.color = "#d13a30";
+
         connectToDevice();
     }
 
@@ -165,20 +244,20 @@
         timestampContainer.innerHTML = getDateTime();
     }
 
-    function writeOnCharacteristic(characteristicUUID, value) {
+    function writeOnCharacteristic(value) {
         if (bleServer && bleServer.connected) {
-            bleServiceFound.getCharacteristic(characteristicUUID)
+            bleServiceFound.getCharacteristic(ledCharacteristic)
             .then(characteristic => {
-                console.log("Found the characteristic: ", characteristic.uuid);
+                console.log("Found the LED characteristic: ", characteristic.uuid);
                 const data = new Uint8Array([value]);
                 return characteristic.writeValue(data);
             })
             .then(() => {
                 latestValueSent.innerHTML = value;
-                console.log("Value written to characteristic:", value);
+                console.log("Value written to LED characteristic:", value);
             })
             .catch(error => {
-                console.error("Error writing to the characteristic: ", error);
+                console.error("Error writing to the LED characteristic: ", error);
             });
         } else {
             console.error("Bluetooth is not connected. Cannot write to characteristic.");
@@ -186,20 +265,24 @@
         }
     }
 
-    function sendConfiguration(configValue) {
+    function sendConfigData(data) {
         if (bleServer && bleServer.connected) {
-            const data = new TextEncoder().encode(configValue);
-            configCharacteristicFound.writeValue(data)
+            bleServiceFound.getCharacteristic(configCharacteristic)
+            .then(characteristic => {
+                console.log("Found the Config characteristic: ", characteristic.uuid);
+                const encoder = new TextEncoder();
+                return characteristic.writeValue(encoder.encode(data));
+            })
             .then(() => {
-                lastConfigSent.innerHTML = configValue;
-                console.log("Configuration sent:", configValue);
+                lastConfigSent.innerHTML = data;
+                console.log("Config data sent:", data);
             })
             .catch(error => {
-                console.error("Error sending configuration:", error);
+                console.error("Error writing config data: ", error);
             });
         } else {
-            console.error("Bluetooth is not connected. Cannot send configuration.");
-            window.alert("Bluetooth is not connected. Cannot send configuration. \n Connect to BLE first!");
+            console.error("Bluetooth is not connected. Cannot send config data.");
+            window.alert("Bluetooth is not connected. Cannot send config data. \n Connect to BLE first!");
         }
     }
 
