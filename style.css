@@ -87,3 +87,30 @@ textarea {
 .card p {
     margin: 0.5em 0;
 }
+.footer {
+    background-color: #0A1128;
+    padding: 20px;
+    color: white;
+    text-align: center;
+    font-size: 1rem;
+    border-top: 1px solid #ccc;
+}
+
+.footer p {
+    margin: 10px 0;
+}
+
+.footer a {
+    color: #1E90FF;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.footer a:hover {
+    text-decoration: underline;
+}
+
+.whatsapp-link {
+    color: #25D366; /* WhatsApp green color */
+    font-weight: bold;
+}
